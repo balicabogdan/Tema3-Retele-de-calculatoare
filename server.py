@@ -10,6 +10,15 @@ FILES_DIR = 'files'
 DEFAULT_USER = 'student'
 DEFAULT_PASSWORD = '1234'
 
+file_history = {}
+
+
+def add_history(filename, operation):
+    if filename not in file_history:
+        file_history[filename] = []
+    file_history[filename].append(operation)
+
+
 def ensure_files_dir():
     """Ensure files directory exists"""
     if not os.path.exists(FILES_DIR):
@@ -62,39 +71,94 @@ def handle_client(conn, addr):
                 elif command == 'create_file':
                     filename = request.get('filename')
                     content = request.get('content', '')
-                    
+
                     filepath = os.path.join(FILES_DIR, filename)
                     with open(filepath, 'w') as f:
                         f.write(content)
-                    
+
+                    add_history(filename, 'File created')
                     response = {'status': 'success', 'message': f'File {filename} created on server'}
                     print(f"✓ File created: {filename}")
-                
+
                 elif command == 'upload':
                     filename = request.get('filename')
                     content = request.get('content')
-                    
+
                     filepath = os.path.join(FILES_DIR, filename)
                     with open(filepath, 'w') as f:
                         f.write(content)
-                    
+
+                    add_history(filename, 'File uploaded')
                     response = {'status': 'success', 'message': f'File {filename} uploaded'}
                     print(f"✓ File uploaded: {filename}")
-                
+
                 elif command == 'rename_file':
-                    response = {'status': 'error', 'message': '❌ COMANDO NU ESTE IMPLEMENTATA!\nTrebuie implementata de student.'}
-                
+                    old_name = request.get('old_name')
+                    new_name = request.get('new_name')
+
+                    old_path = os.path.join(FILES_DIR, old_name)
+                    new_path = os.path.join(FILES_DIR, new_name)
+
+                    if not os.path.exists(old_path):
+                        response = {'status': 'error', 'message': f'File {old_name} not found'}
+                    elif os.path.exists(new_path):
+                        response = {'status': 'error', 'message': f'File {new_name} already exists'}
+                    else:
+                        os.rename(old_path, new_path)
+                        if old_name in file_history:
+                            file_history[new_name] = file_history.pop(old_name)
+                        add_history(new_name, f'Renamed from {old_name} to {new_name}')
+                        response = {'status': 'success', 'message': f'File renamed from {old_name} to {new_name}'}
+                        print(f"✓ File renamed: {old_name} -> {new_name}")
+
                 elif command == 'read_file':
-                    response = {'status': 'error', 'message': '❌ COMANDO NU ESTE IMPLEMENTATA!\nTrebuie implementata de student.'}
-                
+                    filename = request.get('filename')
+                    filepath = os.path.join(FILES_DIR, filename)
+
+                    if not os.path.exists(filepath):
+                        response = {'status': 'error', 'message': f'File {filename} not found'}
+                    else:
+                        with open(filepath, 'r') as f:
+                            content = f.read()
+                        add_history(filename, 'File read')
+                        response = {'status': 'success', 'content': content}
+                        print(f"✓ File read: {filename}")
+
                 elif command == 'download':
-                    response = {'status': 'error', 'message': '❌ COMANDO NU ESTE IMPLEMENTATA!\nTrebuie implementata de student.'}
-                
+                    filename = request.get('filename')
+                    filepath = os.path.join(FILES_DIR, filename)
+
+                    if not os.path.exists(filepath):
+                        response = {'status': 'error', 'message': f'File {filename} not found'}
+                    else:
+                        with open(filepath, 'r') as f:
+                            content = f.read()
+                        add_history(filename, 'File downloaded')
+                        response = {'status': 'success', 'filename': filename, 'content': content}
+                        print(f"✓ File downloaded: {filename}")
+
                 elif command == 'edit_file':
-                    response = {'status': 'error', 'message': '❌ COMANDO NU ESTE IMPLEMENTATA!\nTrebuie implementata de student.'}
-                
+                    filename = request.get('filename')
+                    new_content = request.get('content', '')
+                    filepath = os.path.join(FILES_DIR, filename)
+
+                    if not os.path.exists(filepath):
+                        response = {'status': 'error', 'message': f'File {filename} not found'}
+                    else:
+                        with open(filepath, 'w') as f:
+                            f.write(new_content)
+                        add_history(filename, 'File edited')
+                        response = {'status': 'success', 'message': f'File {filename} updated'}
+                        print(f"✓ File edited: {filename}")
+
                 elif command == 'see_file_operation_history':
-                    response = {'status': 'error', 'message': '❌ COMANDO NU ESTE IMPLEMENTATA!\nTrebuie implementata de student.'}
+                    filename = request.get('filename')
+
+                    if not file_history.get(filename):
+                        response = {'status': 'success', 'history': [], 'message': f'No history for {filename}'}
+                    else:
+                        response = {'status': 'success', 'history': file_history[filename]}
+                        print(f"✓ History sent for: {filename}")
                 
                 elif command == 'list_files':
                     files = os.listdir(FILES_DIR)
